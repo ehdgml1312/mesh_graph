@@ -210,7 +210,7 @@ class GraphUnet(torch.nn.Module):
 
 class TransUnet(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
-                 pool_ratios=0.4, sum_res=True, act=F.relu):
+                 pool_ratios, sum_res=True, act=F.relu):
         super(TransUnet, self).__init__()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels

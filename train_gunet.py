@@ -41,6 +41,8 @@ model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[50,100,200,300], gamma=0.8)
 
+train_loss_history=[]
+valid_loss_history=[]
 best_loss = 10e10
 for epoch in tqdm(range(500)):
     model.train()
@@ -79,13 +81,18 @@ for epoch in tqdm(range(500)):
     train_loss = train_loss / len(train_set)
     valid_loss = valid_loss / len(valid_set)
 
+    train_loss_history.append(train_loss)
+    valid_loss_history.append(valid_loss)
+
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), 'exp/mindboggle/trans')
+        torch.save(model.state_dict(), 'exp/mindboggle/tu/best_model')
 
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
 
+torch.save(train_loss_history, 'exp/mindboggle/tu/train_loss.txt')
+torch.save(valid_loss_history, 'exp/mindboggle/tu/valid_loss.txt')
 
 # def dice(pred, gt):
 #     XnY = torch.ones((len(gt))).to(device) * 14

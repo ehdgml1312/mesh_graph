@@ -45,11 +45,9 @@ class PointTransformerConv(MessagePassing):
         self.lin_dst.reset_parameters()
 
 
-    def forward(self,data):
+    def forward(self,x, edge_index):
 
-        x = data.x
-        pos = data.x[:,:3]
-        edge_index = data.edge_index
+        pos = x[:,:3]
         if isinstance(x, Tensor):
             alpha = (self.lin_src(x), self.lin_dst(x))
             x: PairTensor = (self.lin(x), x)

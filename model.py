@@ -210,8 +210,8 @@ class GraphUnet(torch.nn.Module):
 
 class TransUnet(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
-                 pool_ratios=0.5, sum_res=True, act=F.relu):
-        super(GraphUnet, self).__init__()
+                 pool_ratios=0.4, sum_res=True, act=F.relu):
+        super(TransUnet, self).__init__()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
         self.out_channels = out_channels
@@ -258,7 +258,7 @@ class TransUnet(torch.nn.Module):
             batch = edge_index.new_zeros(x.size(0))
         edge_weight = x.new_ones(edge_index.size(1))
 
-        x = self.down_convs[0](x, edge_index, edge_weight)
+        x = self.down_convs[0](x, edge_index)
         x = self.act(x)
 
         xs = [x]
@@ -272,7 +272,7 @@ class TransUnet(torch.nn.Module):
             x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](
                 x, edge_index, edge_weight, batch)
 
-            x = self.down_convs[i](x, edge_index, edge_weight)
+            x = self.down_convs[i](x, edge_index)
             x = self.act(x)
 
             if i < self.depth:
@@ -293,7 +293,7 @@ class TransUnet(torch.nn.Module):
             up[perm] = x
             x = res + up if self.sum_res else torch.cat((res, up), dim=-1)
 
-            x = self.up_convs[i](x, edge_index, edge_weight)
+            x = self.up_convs[i](x, edge_index)
             x = self.act(x) if i < self.depth - 1 else x
 
         x = self.decode(x)

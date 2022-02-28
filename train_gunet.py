@@ -31,7 +31,7 @@ valid_loader = DataLoader(valid_set, batch_size = 1)
 test_loader = DataLoader(test_set, batch_size = 1)
 
 
-model = TransUnet(in_channels=4, hidden_channels=[32,64,128,256], out_channels=32,
+model = TransUnet(in_channels=6, hidden_channels=[32,64,128], out_channels=32,
                  num_classes=32, sum_res=False)
 
 device = "cuda:2" if torch.cuda.is_available() else "cpu"

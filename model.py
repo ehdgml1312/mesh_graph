@@ -319,6 +319,126 @@ class TransUnet(torch.nn.Module):
             self.__class__.__name__, self.in_channels, self.hidden_channels,
             self.out_channels, self.depth, self.pool_ratios)
 
+class PaTransUnet(torch.nn.Module):
+    def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
+                 pool_ratios, sum_res=True, act=F.relu):
+        super(PaTransUnet, self).__init__()
+        self.in_channels = in_channels
+        self.hidden_channels = hidden_channels
+        self.out_channels = out_channels
+        self.depth = len(hidden_channels)
+        self.num_classes = num_classes
+        self.pool_ratios = repeat(pool_ratios, self.depth)
+        self.act = act
+        self.sum_res = sum_res
+
+        channels = hidden_channels
+
+        self.down_convs = torch.nn.ModuleList()
+        self.pools = torch.nn.ModuleList()
+        self.down_convs.append(PointTransformerConv(in_channels, channels[0]).to('cuda:3'))
+        for i in range(self.depth):
+            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]).to('cuda:2'))
+            if i == self.depth - 1:  # bottom layer
+                self.down_convs.append(PointTransformerConv(channels[i], channels[i]).to('cuda:3'))
+            else:
+                self.down_convs.append(PointTransformerConv(channels[i], channels[i + 1]).to('cuda:1'))
+
+        self.up_convs = torch.nn.ModuleList()
+        for i in range(self.depth - 1):
+            self.up_convs.append(PointTransformerConv(2 * channels[self.depth - i - 1], channels[self.depth - i - 2]))
+        self.up_convs.append(PointTransformerConv(2 * channels[0], out_channels))
+
+        self.up_convs.to('cuda:2')
+
+        self.reset_parameters()
+
+        self.decode = nn.Linear(out_channels, num_classes).to('cuda:3')
+
+    def reset_parameters(self):
+        for conv in self.down_convs:
+            conv.reset_parameters()
+        for pool in self.pools:
+            pool.reset_parameters()
+        for conv in self.up_convs:
+            conv.reset_parameters()
+
+    def forward(self, data, batch=None):
+        """"""
+        x, edge_index = data.x[:,:self.in_channels].to('cuda:3'), data.edge_index.to('cuda:3')
+
+        # if batch is None:
+            # batch = edge_index.new_zeros(x.size(0)).to('cuda:2')
+        edge_weight = None
+
+        x = self.down_convs[0](x, edge_index)
+        x = self.act(x)
+
+        xs = [x.to('cuda:3')]
+        edge_indices = [edge_index.to('cuda:3')]
+        # edge_weights = None
+        perms = []
+
+        for i in range(1, self.depth):
+            edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
+            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:2'), edge_index.to('cuda:2'))
+
+            x = self.down_convs[i](x.to('cuda:1'), edge_index.to('cuda:1'))
+            x = self.act(x)
+
+            if i < self.depth:
+                xs += [x.to('cpu')]
+                edge_indices += [edge_index.to('cpu')]
+                # edge_weights += [edge_weight.to('cuda:2')]
+            perms += [perm.to('cpu')]
+
+        edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
+        x, edge_index, edge_weight, batch, perm, _ = self.pools[self.depth - 1](x.to('cuda:2'), edge_index.to('cuda:2'))
+
+        x = self.down_convs[self.depth](x.to('cuda:3'), edge_index.to('cuda:3'))
+        x = self.act(x)
+
+        perms += [perm.to('cpu')]
+
+        for i in range(self.depth):
+            j = self.depth - 1 - i
+
+            res = xs[j].to('cuda:2')
+            edge_index = edge_indices[j].to('cuda:2')
+            # edge_weight = edge_weights[j]
+            perm = perms[j].to('cuda:2')
+
+            up = torch.zeros_like(res).to('cuda:2')
+
+            up[perm] = x.to('cuda:2')
+            x = res + up if self.sum_res else torch.cat((res, up), dim=-1)
+
+            x = self.up_convs[i](x, edge_index)
+            x = self.act(x) if i < self.depth - 1 else x
+
+        x = self.decode(x.to('cuda:3'))
+
+        return x
+
+
+    def augment_adj(self, edge_index, edge_weight, num_nodes):
+        edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
+        edge_index, edge_weight = add_self_loops(edge_index, edge_weight,
+                                                 num_nodes=num_nodes)
+        edge_index, edge_weight = sort_edge_index(edge_index, edge_weight,
+                                                  num_nodes)
+        edge_index, edge_weight = spspmm(edge_index, edge_weight, edge_index,
+                                         edge_weight, num_nodes, num_nodes,
+                                         num_nodes)
+        edge_index, edge_weight = remove_self_loops(edge_index, edge_weight)
+        return edge_index, edge_weight
+
+
+    def __repr__(self):
+        return '{}({}, {}, {}, depth={}, pool_ratios={})'.format(
+            self.__class__.__name__, self.in_channels, self.hidden_channels,
+            self.out_channels, self.depth, self.pool_ratios)
+
 class EdgeUnet(torch.nn.Module):
     def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
                  pool_ratios=0.5, sum_res=True, act=F.relu):

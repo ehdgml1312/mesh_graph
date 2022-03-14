@@ -31,15 +31,15 @@ valid_loader = DataLoader(valid_set, batch_size = 1)
 test_loader = DataLoader(test_set, batch_size = 1)
 
 
-model = EdgeUnet(in_channels=6, hidden_channels=[32,64,128], out_channels=32,
-                 num_classes=32, pool_ratios = 0.4, sum_res=False)
+model = PaTransUnet(in_channels=6, hidden_channels=[32,64,128], out_channels=32,
+                 num_classes=32, pool_ratios = 0.5, sum_res=False)
 
-device = "cuda:3" if torch.cuda.is_available() else "cpu"
+# device = "cuda:1" if torch.cuda.is_available() else "cpu"
 #device = "cpu"
 
-model = model.to(device)
+# model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100,200,300,400], gamma=0.8)
+# scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100,200,300,400], gamma=0.8)
 
 train_loss_history=[]
 valid_loss_history=[]
@@ -50,16 +50,17 @@ for epoch in tqdm(range(500)):
     valid_loss = 0
 
     for data in train_loader:
-        data = data.to(device)
+        # data = data.to('cuda:1')
         optimizer.zero_grad()
         out = model(data)
 
-        weight = torch.bincount(data.y) / len(data.y)
+        y = data.y.to('cuda:3')
+        weight = torch.bincount(y) / len(y)
         weight = 1 / weight
         weight = weight / weight.sum()
         criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-        loss = criterion(out, data.y)
+        loss = criterion(out, y)
         loss.backward()
         optimizer.step()
         train_loss += loss
@@ -67,15 +68,16 @@ for epoch in tqdm(range(500)):
     model.eval()
     with torch.no_grad():
         for data in valid_loader:
-            data = data.to(device)
+            # data = data.to('cuda:1')
             out = model(data)
 
-            weight = torch.bincount(data.y) / len(data.y)
+            y = data.y.to('cuda:3')
+            weight = torch.bincount(y) / len(y)
             weight = 1 / weight
             weight = weight / weight.sum()
             criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-            loss = criterion(out, data.y)
+            loss = criterion(out, y)
             valid_loss += loss
 
     train_loss = train_loss / len(train_set)
@@ -86,13 +88,12 @@ for epoch in tqdm(range(500)):
 
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), 'exp/mindboggle/eu/best_model')
-
+        torch.save(model.state_dict(), 'exp/mindboggle/ptu/best_model')
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
 
-torch.save(train_loss_history, 'exp/mindboggle/eu/train_loss.txt')
-torch.save(valid_loss_history, 'exp/mindboggle/eu/valid_loss.txt')
+torch.save(train_loss_history, 'exp/mindboggle/ptu/train_loss.txt')
+torch.save(valid_loss_history, 'exp/mindboggle/ptu/valid_loss.txt')
 
 # def dice(pred, gt):
 #     XnY = torch.ones((len(gt))).to(device) * 14

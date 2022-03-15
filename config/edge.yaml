@@ -2,7 +2,7 @@
 exp_name: edge
 exp_dir: ./exp
 seed: 2
-gpu: cuda:2
+device: cuda:2
 
 data : mind
 in_channels: 6

@@ -2,7 +2,7 @@
 exp_name: trans
 exp_dir: ./exp
 seed: 2
-gpu: cuda:1
+device: cuda:1
 
 data : mind
 in_channels: 6

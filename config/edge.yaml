@@ -1,9 +1,9 @@
 ---
-exp_name: edge
 exp_dir: ./exp
 seed: 2
 device: cuda:2
 
+model : edge
 data : mind
 in_channels: 6
 hidden_channels: [32,64,128]

@@ -36,9 +36,9 @@ test_loader = DataLoader(test_set, batch_size = 1)
 
 device = config.device
 
-if config.exp_name == 'edge':
+if config.model == 'edge':
     model = EdgeUnet(config).to(device)
-elif config.exp_name == 'trans':
+elif config.model == 'trans':
     model = TransUnet(config).to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=0.01)

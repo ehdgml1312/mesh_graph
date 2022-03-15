@@ -1,9 +1,9 @@
 ---
-exp_name: trans
 exp_dir: ./exp
 seed: 2
 device: cuda:1
 
+model: trans
 data : mind
 in_channels: 6
 hidden_channels: [32,64,128]

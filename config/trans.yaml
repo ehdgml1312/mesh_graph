@@ -1,0 +1,14 @@
+---
+exp_name: trans
+exp_dir: ./exp
+seed: 2
+gpu: cuda:1
+
+data : mind
+in_channels: 6
+hidden_channels: [32,64,128]
+pool_ratios: [0.5,0.5,0.5]
+out_channels: 32
+num_classes: 14
+sum_res: False
+

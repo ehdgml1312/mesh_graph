@@ -16,18 +16,19 @@ random.seed(seed)
 torch.manual_seed(seed)
 torch.cuda.manual_seed_all(seed)
 
-# data = torch.load('sulc')
-# random.shuffle(data)
-#
-# train_set = data[0:25]
-# valid_set = data[25:29]
-# test_set = data[29:]
+if config.data == 'mind':
+    data = torch.load('mind')
+    random.shuffle(data)
+    train_set = data[0:71]
+    valid_set = data[71:81]
+    test_set = data[81:]
 
-data = torch.load('mind')
-random.shuffle(data)
-train_set = data[0:71]
-valid_set = data[71:81]
-test_set = data[81:]
+elif config.data == 'sulc':
+    data = torch.load('sulc')
+    random.shuffle(data)
+    train_set = data[0:25]
+    valid_set = data[25:29]
+    test_set = data[29:]
 
 train_loader = DataLoader(train_set, batch_size = 1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size = 1)
@@ -35,9 +36,9 @@ test_loader = DataLoader(test_set, batch_size = 1)
 
 device = config.device
 
-if config.model == 'edge':
+if config.exp_name == 'edge':
     model = EdgeUnet(config).to(device)
-elif config.model == 'transform':
+elif config.exp_name == 'trans':
     model = TransUnet(config).to(device)
 
 optimizer = optim.Adam(model.parameters(), lr=0.01)

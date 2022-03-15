@@ -4,49 +4,45 @@ import random
 from tqdm import tqdm
 from rotation import augmentation
 from torch import optim
-from arg_helper import *
-import os
 import numpy as np
 
-os.environ["CUDA_DEVICE_ORDER"]="PCI_BUS_ID"
-os.environ["CUDA_VISIBLE_DEVICES"] = "0"
+np.random.seed(1)
+random.seed(1)
+torch.manual_seed(1)
+torch.cuda.manual_seed_all(1)
 
-args = parse_arguments()
-config = get_config(args.config_file)
+# data = torch.load('sulc')
+# random.shuffle(data)
+#
+# train_set = data[0:25]
+# valid_set = data[25:29]
+# test_set = data[29:]
 
-np.random.seed(config.seed)
-random.seed(config.seed)
-torch.manual_seed(config.seed)
-torch.cuda.manual_seed_all(config.seed)
-
-data = torch.load('sulc')
+data = torch.load('mind')
 random.shuffle(data)
+train_set = data[0:71]
+valid_set = data[71:81]
+test_set = data[81:]
 
-train_set = data[0:25]
-valid_set = data[25:29]
-test_set = data[29:]
-
-train_set = augmentation(train_set, config.num)
+# train_set = augmentation(train_set, 2)
 
 train_loader = DataLoader(train_set, batch_size = 1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size = 1)
 test_loader = DataLoader(test_set, batch_size = 1)
 
-if config.model == 'ProbGraphUnet':
-    model = ProbGraphUnet(config)
-else:
-    model = GraphUnet(config)
 
+model = PaTransUnet(in_channels=6, hidden_channels=[32,64,128], out_channels=32,
+                 num_classes=32, pool_ratios = 0.5, sum_res=False)
 
+# device = "cuda:1" if torch.cuda.is_available() else "cpu"
+#device = "cpu"
 
-device = config.gpu if torch.cuda.is_available() else "cpu"
-model = model.to(device)
+# model = model.to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[5,100,200], gamma=0.5)
+# scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100,200,300,400], gamma=0.8)
 
 train_loss_history=[]
 valid_loss_history=[]
-
 best_loss = 10e10
 for epoch in tqdm(range(500)):
     model.train()
@@ -54,49 +50,81 @@ for epoch in tqdm(range(500)):
     valid_loss = 0
 
     for data in train_loader:
-        data = data.to(device)
+        # data = data.to('cuda:1')
         optimizer.zero_grad()
         out = model(data)
 
-        weight = torch.bincount(data.y) / len(data.y)
+        y = data.y.to('cuda:3')
+        weight = torch.bincount(y) / len(y)
         weight = 1 / weight
         weight = weight / weight.sum()
         criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-        loss = criterion(out[0], data.y)
+        loss = criterion(out, y)
         loss.backward()
-        train_loss += loss
-
         optimizer.step()
+        train_loss += loss
 
     model.eval()
     with torch.no_grad():
         for data in valid_loader:
-            data = data.to(device)
+            # data = data.to('cuda:1')
             out = model(data)
 
-            weight = torch.bincount(data.y) / len(data.y)
+            y = data.y.to('cuda:3')
+            weight = torch.bincount(y) / len(y)
             weight = 1 / weight
             weight = weight / weight.sum()
             criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-            for i in range(config.num_samples):
-                loss = criterion(out[i], data.y)
-                valid_loss += loss
+            loss = criterion(out, y)
+            valid_loss += loss
 
     train_loss = train_loss / len(train_set)
-    valid_loss = valid_loss / (len(valid_set) * config.num_samples)
+    valid_loss = valid_loss / len(valid_set)
 
     train_loss_history.append(train_loss)
     valid_loss_history.append(valid_loss)
 
-
-
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), os.path.join(config.save_dir, 'best_model.pt'))
+        torch.save(model.state_dict(), 'exp/mindboggle/ptu/best_model')
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
 
-torch.save(train_loss_history, os.path.join(config.save_dir, 'train_loss'))
-torch.save(valid_loss_history, os.path.join(config.save_dir, 'valid_loss'))
+torch.save(train_loss_history, 'exp/mindboggle/ptu/train_loss.txt')
+torch.save(valid_loss_history, 'exp/mindboggle/ptu/valid_loss.txt')
+
+# def dice(pred, gt):
+#     XnY = torch.ones((len(gt))).to(device) * 14
+#     for i in range(len(gt)):
+#         if pred[i] == gt[i]:
+#             XnY[i] = pred[i]
+#     D = torch.zeros((14))
+#     for j in range(14):
+#         if (len(torch.where(pred == j)[0]) + len(torch.where(gt == j)[0])) == 0:
+#             D[j] = 0
+#         else:
+#             D[j] = ((2 * len(torch.where(XnY == j)[0])) / (
+#                         len(torch.where(pred == j)[0]) + len(torch.where(gt == j)[0])))
+#
+#     dice = (torch.sum(D) - D[0]) / 13
+#     return dice
+#
+# model.load_state_dict(best_state)
+#
+# model.eval()
+# with torch.no_grad():
+#     test_dice = 0
+#
+#     for data in test_loader:
+#         data = data.to(device)
+#         out = model(data)
+#         pred = out.argmax(dim=1)
+#
+#         D = dice(pred, data.y)
+#
+#         test_dice += D
+#     test_dice /= 7
+# print('4')
+# print(test_dice)

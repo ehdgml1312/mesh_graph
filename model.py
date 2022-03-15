@@ -209,38 +209,36 @@ class GraphUnet(torch.nn.Module):
             self.out_channels, self.depth, self.pool_ratios)
 
 class TransUnet(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
-                 pool_ratios, sum_res=True, act=F.relu):
+    def __init__(self, config):
         super(TransUnet, self).__init__()
-        self.in_channels = in_channels
-        self.hidden_channels = hidden_channels
-        self.out_channels = out_channels
-        self.depth = len(hidden_channels)
-        self.num_classes = num_classes
-        self.pool_ratios = repeat(pool_ratios, self.depth)
-        self.act = act
-        self.sum_res = sum_res
-
-        channels = hidden_channels
+        self.in_channels = config.in_channels
+        self.channels = config.hidden_channels
+        self.out_channels = config.out_channels
+        self.depth = len(config.hidden_channels)
+        self.num_classes = config.num_classes
+        self.pool_ratios = config.pool_ratios
+        self.sum_res = config.sum_res
+        self.act = F.relu
+        self.num_samples = config.num_samples
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
-        self.down_convs.append(PointTransformerConv(in_channels, channels[0]))
+        self.down_convs.append(PointTransformerConv(self.in_channels, self.channels[0]))
         for i in range(self.depth):
-            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]))
+            self.pools.append(TopKPooling(self.channels[i], self.pool_ratios[i]))
             if i == self.depth - 1:  # bottom layer
-                self.down_convs.append(PointTransformerConv(channels[i], channels[i]))
+                self.down_convs.append(PointTransformerConv(self.channels[i], self.channels[i]))
             else:
-                self.down_convs.append(PointTransformerConv(channels[i], channels[i + 1]))
+                self.down_convs.append(PointTransformerConv(self.channels[i], self.channels[i + 1]))
 
         self.up_convs = torch.nn.ModuleList()
         for i in range(self.depth - 1):
-            self.up_convs.append(PointTransformerConv(2 * channels[self.depth - i - 1], channels[self.depth - i - 2]))
-        self.up_convs.append(PointTransformerConv(2 * channels[0], out_channels))
+            self.up_convs.append(PointTransformerConv(2 * self.channels[self.depth - i - 1], self.channels[self.depth - i - 2]))
+        self.up_convs.append(PointTransformerConv(2 * self.channels[0], self.out_channels))
 
         self.reset_parameters()
 
-        self.decode = nn.Linear(out_channels , num_classes)
+        self.decode = nn.Linear(self.out_channels , self.num_classes)
 
     def reset_parameters(self):
         for conv in self.down_convs:
@@ -440,38 +438,37 @@ class PaTransUnet(torch.nn.Module):
             self.out_channels, self.depth, self.pool_ratios)
 
 class EdgeUnet(torch.nn.Module):
-    def __init__(self, in_channels, hidden_channels, out_channels, num_classes,
-                 pool_ratios=0.5, sum_res=True, act=F.relu):
+    def __init__(self, config):
         super(EdgeUnet, self).__init__()
-        self.in_channels = in_channels
-        self.hidden_channels = hidden_channels
-        self.out_channels = out_channels
-        self.depth = len(hidden_channels)
-        self.num_classes = num_classes
-        self.pool_ratios = repeat(pool_ratios, self.depth)
-        self.act = act
-        self.sum_res = sum_res
+        self.in_channels = config.in_channels
+        self.channels = config.hidden_channels
+        self.out_channels = config.out_channels
+        self.depth = len(config.hidden_channels)
+        self.num_classes = config.num_classes
+        self.pool_ratios = config.pool_ratios
+        self.sum_res = config.sum_res
+        self.act = F.relu
+        self.num_samples = config.num_samples
 
-        channels = hidden_channels
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
-        self.down_convs.append(EdgeConv(nn.Linear(2*in_channels, channels[0]), aggr='max'))
+        self.down_convs.append(EdgeConv(nn.Linear(2*self.in_channels, self.channels[0]), aggr='max'))
         for i in range(self.depth):
-            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]))
+            self.pools.append(TopKPooling(self.channels[i], self.pool_ratios[i]))
             if i == self.depth - 1:  # bottom layer
-                self.down_convs.append(EdgeConv(nn.Linear(2*channels[i], channels[i]), aggr='max'))
+                self.down_convs.append(EdgeConv(nn.Linear(2*self.channels[i], self.channels[i]), aggr='max'))
             else:
-                self.down_convs.append(EdgeConv(nn.Linear(2*channels[i], channels[i + 1]), aggr='max'))
+                self.down_convs.append(EdgeConv(nn.Linear(2*self.channels[i], self.channels[i + 1]), aggr='max'))
 
         self.up_convs = torch.nn.ModuleList()
         for i in range(self.depth - 1):
-            self.up_convs.append(EdgeConv(nn.Linear(2* 2 * channels[self.depth - i - 1], channels[self.depth - i - 2]), aggr='max'))
-        self.up_convs.append(EdgeConv(nn.Linear(2* 2 * channels[0], out_channels), aggr='max'))
+            self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.channels[self.depth - i - 1], self.channels[self.depth - i - 2]), aggr='max'))
+        self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.channels[0], self.out_channels), aggr='max'))
 
         self.reset_parameters()
 
-        self.decode = nn.Linear(out_channels , num_classes)
+        self.decode = nn.Linear(self.out_channels , self.num_classes)
 
     def reset_parameters(self):
         for conv in self.down_convs:

@@ -35,7 +35,7 @@ def get_config(config_file,exp_dir=None):
     config = edict(yaml.load(open(config_file, 'r'), Loader=yaml.FullLoader))
 
     # create hyper parameters
-    config.exp_name = '_'.join([config.exp_name,str(config.seed),str(config.num_samples),str(config.num)])
+    config.exp_name = '_'.join([config.model,str(config.seed)])
 
     if exp_dir is not None:
         config.exp_dir = exp_dir

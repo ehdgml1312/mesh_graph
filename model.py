@@ -219,7 +219,6 @@ class TransUnet(torch.nn.Module):
         self.pool_ratios = config.pool_ratios
         self.sum_res = config.sum_res
         self.act = F.relu
-        self.num_samples = config.num_samples
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
@@ -448,8 +447,6 @@ class EdgeUnet(torch.nn.Module):
         self.pool_ratios = config.pool_ratios
         self.sum_res = config.sum_res
         self.act = F.relu
-        self.num_samples = config.num_samples
-
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()

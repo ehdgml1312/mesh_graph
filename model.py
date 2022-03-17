@@ -467,6 +467,12 @@ class EdgeUnet(torch.nn.Module):
 
         self.decode = nn.Linear(self.out_channels , self.num_classes)
 
+
+        self.down_convs.to('cuda:1')
+        self.pools.to('cuda:1')
+        self.up_convs.to('cuda:2')
+        self.decode.to('cuda:2')
+
     def reset_parameters(self):
         for conv in self.down_convs:
             conv.reset_parameters()
@@ -479,9 +485,7 @@ class EdgeUnet(torch.nn.Module):
         """"""
         x, edge_index = data.x[:,:self.in_channels], data.edge_index
 
-        if batch is None:
-            batch = edge_index.new_zeros(x.size(0))
-        edge_weight = x.new_ones(edge_index.size(1))
+        edge_weight = None
 
         x = self.down_convs[0](x, edge_index)
         x = self.act(x)
@@ -501,20 +505,20 @@ class EdgeUnet(torch.nn.Module):
             x = self.act(x)
 
             if i < self.depth:
-                xs += [x]
-                edge_indices += [edge_index]
-                edge_weights += [edge_weight]
-            perms += [perm]
+                xs += [x.to('cuda:2')]
+                edge_indices += [edge_index.to('cuda:2')]
+            perms += [perm.to('cuda:2')]
+
+        x = x.to('cuda:2')
 
         for i in range(self.depth):
             j = self.depth - 1 - i
 
-            res = xs[j]
-            edge_index = edge_indices[j]
-            edge_weight = edge_weights[j]
-            perm = perms[j]
+            res = xs[j].to('cuda:2')
+            edge_index = edge_indices[j].to('cuda:2')
+            perm = perms[j].to('cuda:2')
 
-            up = torch.zeros_like(res)
+            up = torch.zeros_like(res).to('cuda:2')
             up[perm] = x
             x = res + up if self.sum_res else torch.cat((res, up), dim=-1)
 

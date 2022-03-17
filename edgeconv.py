@@ -1,4 +1,5 @@
 import torch
+import torch.nn.functional as F
 from torch_geometric.data import DataLoader
 from tqdm import tqdm
 from torch import optim
@@ -14,17 +15,17 @@ random.seed(1)
 torch.manual_seed(1)
 torch.cuda.manual_seed_all(1)
 
-data = torch.load('sulc')
-random.shuffle(data)
-train_set = data[0:25]
-valid_set = data[25:29]
-test_set = data[29:]
-
-# data = torch.load('mind')
+# data = torch.load('sulc')
 # random.shuffle(data)
-# train_set = data[0:71]
-# valid_set = data[71:81]
-# test_set = data[81:]
+# train_set = data[0:25]
+# valid_set = data[25:29]
+# test_set = data[29:]
+
+data = torch.load('mind')
+random.shuffle(data)
+train_set = data[0:71]
+valid_set = data[71:81]
+test_set = data[81:]
 
 train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size=1)
@@ -46,23 +47,33 @@ class Net(torch.nn.Module):
         # self.conv2 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
         # self.conv3 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
         # self.conv4 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
-        self.conv1 = PointTransformerConv(4, 64)
-        self.conv2 = PointTransformerConv(64, 64)
-        self.conv3 = PointTransformerConv(64, 64)
-        self.conv4 = PointTransformerConv(64, 64)
+        self.conv1 = PointTransformerConv(6, 64)
+        self.conv2 = PointTransformerConv(6 + 64, 64)
+        self.conv3 = PointTransformerConv(6 + 64*2, 64)
+        self.conv4 = PointTransformerConv(6 + 64*3, 64)
         self.dropout1 = nn.Dropout(p=0.5)
         self.dropout2 = nn.Dropout(p=0.5)
 
-        self.mlp1 = nn.Linear(4 * 64 , 64)
+        self.mlp1 = nn.Linear(6 + 4 * 64 , 64)
         self.mlp2 = nn.Linear(64, out_channels)
 
     def forward(self, data):
         x, edge_index, batch = data.x[:,:], data.edge_index, data.batch
         x1 = self.conv1(x, edge_index)
-        x2 = self.conv2(x1, edge_index)
-        x3 = self.conv3(x2, edge_index)
-        x4 = self.conv4(x3, edge_index)
-        out = torch.cat([x1, x2, x3, x4], 1)
+
+        x2 = torch.cat([x, x1], 1)
+        x2 = self.conv2(x2, edge_index)
+        x2 = F.leaky_relu(x2)
+
+        x3 = torch.cat([x, x1, x2], 1)
+        x3 = self.conv3(x3, edge_index)
+        x3 = F.leaky_relu(x3)
+
+        x4 = torch.cat([x, x1, x2, x3], 1)
+        x4 = self.conv4(x4, edge_index)
+        x4 = F.leaky_relu(x4)
+
+        out = torch.cat([x, x1, x2, x3, x4], 1)
         # m = self.mlp(out)
         # m = m.max(0).values.repeat(len(x), 1)
         #
@@ -77,9 +88,9 @@ class Net(torch.nn.Module):
 
 
 device = torch.device('cuda:1' if torch.cuda.is_available() else 'cpu')
-model = Net(14).to(device)
+model = Net(32).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-# scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100, 200, 300, 400], gamma=0.8)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
 
 train_loss_history=[]
 valid_loss_history=[]
@@ -126,11 +137,11 @@ for epoch in tqdm(range(600)):
 
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), 'exp/sulc/trans/best_model')
+        torch.save(model.state_dict(), 'exp/mindboggle/trans/best_model')
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
-torch.save(train_loss_history, 'exp/sulc/trans/train_loss.txt')
-torch.save(valid_loss_history, 'exp/sulc/trans/valid_loss.txt')
+torch.save(train_loss_history, 'exp/mindboggle/trans/train_loss.txt')
+torch.save(valid_loss_history, 'exp/mindboggle/trans/valid_loss.txt')
 #
 # def dice(pred, gt):
 #     XnY = torch.ones((len(gt))).to(device) * 14

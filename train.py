@@ -37,9 +37,9 @@ test_loader = DataLoader(test_set, batch_size = 1)
 device = config.device
 
 if config.model == 'edge':
-    model = EdgeUnet(config).to(device)
+    model = EdgeUnet(config)
 elif config.model == 'trans':
-    model = TransUnet(config).to(device)
+    model = TransUnet(config)
 
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 # scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100,200,300,400], gamma=0.8)
@@ -57,7 +57,7 @@ for epoch in tqdm(range(500)):
         optimizer.zero_grad()
         out = model(data)
 
-        y = data.y
+        y = data.y.to('cuda:2')
         weight = torch.bincount(y) / len(y)
         weight = 1 / weight
         weight = weight / weight.sum()
@@ -74,7 +74,7 @@ for epoch in tqdm(range(500)):
             data = data.to(device)
             out = model(data)
 
-            y = data.y
+            y = data.y.to('cuda:2')
             weight = torch.bincount(y) / len(y)
             weight = 1 / weight
             weight = weight / weight.sum()

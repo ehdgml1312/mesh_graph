@@ -1,7 +1,7 @@
 ---
 exp_dir: ./exp
 seed: 2
-device: cuda:2
+device: cuda:1
 
 model : edge
 data : mind

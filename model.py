@@ -333,9 +333,9 @@ class PaTransUnet(torch.nn.Module):
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
-        self.down_convs.append(PointTransformerConv(in_channels, channels[0]).to('cuda:3'))
+        self.down_convs.append(PointTransformerConv(in_channels, channels[0]).to('cuda:0'))
         for i in range(self.depth):
-            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]).to('cuda:2'))
+            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]).to('cuda:0'))
             if i == self.depth - 1:  # bottom layer
                 self.down_convs.append(PointTransformerConv(channels[i], channels[i]).to('cuda:3'))
             else:
@@ -362,7 +362,7 @@ class PaTransUnet(torch.nn.Module):
 
     def forward(self, data, batch=None):
         """"""
-        x, edge_index = data.x[:,:self.in_channels].to('cuda:3'), data.edge_index.to('cuda:3')
+        x, edge_index = data.x[:,:self.in_channels].to('cuda:0'), data.edge_index.to('cuda:0')
 
         # if batch is None:
             # batch = edge_index.new_zeros(x.size(0)).to('cuda:2')
@@ -378,7 +378,7 @@ class PaTransUnet(torch.nn.Module):
 
         for i in range(1, self.depth):
             edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
-            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:2'), edge_index.to('cuda:2'))
+            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:0'), edge_index.to('cuda:0'))
 
             x = self.down_convs[i](x.to('cuda:1'), edge_index.to('cuda:1'))
             x = self.act(x)
@@ -390,7 +390,7 @@ class PaTransUnet(torch.nn.Module):
             perms += [perm.to('cpu')]
 
         edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
-        x, edge_index, edge_weight, batch, perm, _ = self.pools[self.depth - 1](x.to('cuda:2'), edge_index.to('cuda:2'))
+        x, edge_index, edge_weight, batch, perm, _ = self.pools[self.depth - 1](x.to('cuda:0'), edge_index.to('cuda:0'))
 
         x = self.down_convs[self.depth](x.to('cuda:3'), edge_index.to('cuda:3'))
         x = self.act(x)
@@ -469,9 +469,9 @@ class EdgeUnet(torch.nn.Module):
 
 
         self.down_convs.to('cuda:1')
-        self.pools.to('cuda:1')
+        self.pools.to('cuda:3')
         self.up_convs.to('cuda:2')
-        self.decode.to('cuda:2')
+        self.decode.to('cuda:3')
 
     def reset_parameters(self):
         for conv in self.down_convs:
@@ -498,10 +498,9 @@ class EdgeUnet(torch.nn.Module):
         for i in range(1, self.depth + 1):
             edge_index, edge_weight = self.augment_adj(edge_index, edge_weight,
                                                        x.size(0))
-            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](
-                x, edge_index, edge_weight, batch)
+            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:3'), edge_index.to('cuda:3'))
 
-            x = self.down_convs[i](x, edge_index)
+            x = self.down_convs[i](x.to('cuda:1'), edge_index.to('cuda:1'))
             x = self.act(x)
 
             if i < self.depth:
@@ -525,7 +524,7 @@ class EdgeUnet(torch.nn.Module):
             x = self.up_convs[i](x, edge_index)
             x = self.act(x) if i < self.depth - 1 else x
 
-        x = self.decode(x)
+        x = self.decode(x.to('cuda:3'))
 
         return x
 

@@ -42,7 +42,7 @@ elif config.model == 'trans':
     model = TransUnet(config)
 
 optimizer = optim.Adam(model.parameters(), lr=0.01)
-# scheduler = optim.lr_scheduler.MultiStepLR(optimizer, milestones=[100,200,300,400], gamma=0.8)
+scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
 
 train_loss_history=[]
 valid_loss_history=[]
@@ -57,7 +57,7 @@ for epoch in tqdm(range(500)):
         optimizer.zero_grad()
         out = model(data)
 
-        y = data.y.to('cuda:2')
+        y = data.y.to('cuda:3')
         weight = torch.bincount(y) / len(y)
         weight = 1 / weight
         weight = weight / weight.sum()
@@ -74,7 +74,7 @@ for epoch in tqdm(range(500)):
             data = data.to(device)
             out = model(data)
 
-            y = data.y.to('cuda:2')
+            y = data.y.to('cuda:3')
             weight = torch.bincount(y) / len(y)
             weight = 1 / weight
             weight = weight / weight.sum()

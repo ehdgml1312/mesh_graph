@@ -47,19 +47,19 @@ class Net(torch.nn.Module):
         # self.conv2 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
         # self.conv3 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
         # self.conv4 = EdgeConv(nn.Linear(2 * 64, 64), aggr)
-        self.conv1 = PointTransformerConv(6, 64)
-        self.conv2 = PointTransformerConv(6 + 64, 64)
-        self.conv3 = PointTransformerConv(6 + 64*2, 64)
-        self.conv4 = PointTransformerConv(6 + 64*3, 64)
-        self.dropout1 = nn.Dropout(p=0.5)
-        self.dropout2 = nn.Dropout(p=0.5)
+        self.conv1 = PointTransformerConv(6, 256)
+        self.conv2 = PointTransformerConv(6+256, 128)
+        self.conv3 = PointTransformerConv(6+256+128, 64)
+        self.conv4 = PointTransformerConv(6+256+128+64, 32)
 
-        self.mlp1 = nn.Linear(6 + 4 * 64 , 64)
+        self.mlp1 = nn.Linear(6+256+128+64+32, 64)
         self.mlp2 = nn.Linear(64, out_channels)
 
     def forward(self, data):
         x, edge_index, batch = data.x[:,:], data.edge_index, data.batch
+
         x1 = self.conv1(x, edge_index)
+        x1 = F.leaky_relu(x1)
 
         x2 = torch.cat([x, x1], 1)
         x2 = self.conv2(x2, edge_index)
@@ -78,9 +78,7 @@ class Net(torch.nn.Module):
         # m = m.max(0).values.repeat(len(x), 1)
         #
         # out = torch.cat([out, m], 1)
-        out = self.dropout1(out)
         out = self.mlp1(out)
-        out = self.dropout2(out)
         out = self.mlp2(out)
 
         return out

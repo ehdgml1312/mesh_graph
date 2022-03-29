@@ -333,11 +333,11 @@ class PaTransUnet(torch.nn.Module):
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
-        self.down_convs.append(PointTransformerConv(in_channels, channels[0]).to('cuda:0'))
+        self.down_convs.append(PointTransformerConv(in_channels, channels[0]).to('cuda:1'))
         for i in range(self.depth):
-            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]).to('cuda:0'))
+            self.pools.append(TopKPooling(channels[i], self.pool_ratios[i]).to('cuda:3'))
             if i == self.depth - 1:  # bottom layer
-                self.down_convs.append(PointTransformerConv(channels[i], channels[i]).to('cuda:3'))
+                self.down_convs.append(PointTransformerConv(channels[i], channels[i]).to('cuda:1'))
             else:
                 self.down_convs.append(PointTransformerConv(channels[i], channels[i + 1]).to('cuda:1'))
 
@@ -362,7 +362,7 @@ class PaTransUnet(torch.nn.Module):
 
     def forward(self, data, batch=None):
         """"""
-        x, edge_index = data.x[:,:self.in_channels].to('cuda:0'), data.edge_index.to('cuda:0')
+        x, edge_index = data.x[:,:self.in_channels].to('cuda:1'), data.edge_index.to('cuda:1')
 
         # if batch is None:
             # batch = edge_index.new_zeros(x.size(0)).to('cuda:2')
@@ -378,7 +378,7 @@ class PaTransUnet(torch.nn.Module):
 
         for i in range(1, self.depth):
             edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
-            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:0'), edge_index.to('cuda:0'))
+            x, edge_index, edge_weight, batch, perm, _ = self.pools[i - 1](x.to('cuda:3'), edge_index.to('cuda:3'))
 
             x = self.down_convs[i](x.to('cuda:1'), edge_index.to('cuda:1'))
             x = self.act(x)
@@ -390,9 +390,9 @@ class PaTransUnet(torch.nn.Module):
             perms += [perm.to('cpu')]
 
         edge_index, edge_weight = self.augment_adj(edge_index, edge_weight, x.size(0))
-        x, edge_index, edge_weight, batch, perm, _ = self.pools[self.depth - 1](x.to('cuda:0'), edge_index.to('cuda:0'))
+        x, edge_index, edge_weight, batch, perm, _ = self.pools[self.depth - 1](x.to('cuda:3'), edge_index.to('cuda:3'))
 
-        x = self.down_convs[self.depth](x.to('cuda:3'), edge_index.to('cuda:3'))
+        x = self.down_convs[self.depth](x.to('cuda:1'), edge_index.to('cuda:1'))
         x = self.act(x)
 
         perms += [perm.to('cpu')]
@@ -467,10 +467,11 @@ class EdgeUnet(torch.nn.Module):
 
         self.decode = nn.Linear(self.out_channels , self.num_classes)
 
-
         self.down_convs.to('cuda:1')
+        self.down_convs[0].to('cuda:0')
         self.pools.to('cuda:3')
         self.up_convs.to('cuda:2')
+        self.up_convs[-1].to('cuda:0')
         self.decode.to('cuda:3')
 
     def reset_parameters(self):
@@ -483,7 +484,7 @@ class EdgeUnet(torch.nn.Module):
 
     def forward(self, data, batch=None):
         """"""
-        x, edge_index = data.x[:,:self.in_channels], data.edge_index
+        x, edge_index = data.x[:,:self.in_channels].to('cuda:0'), data.edge_index.to('cuda:0')
 
         edge_weight = None
 
@@ -504,13 +505,13 @@ class EdgeUnet(torch.nn.Module):
             x = self.act(x)
 
             if i < self.depth:
-                xs += [x.to('cuda:2')]
-                edge_indices += [edge_index.to('cuda:2')]
-            perms += [perm.to('cuda:2')]
+                xs += [x]
+                edge_indices += [edge_index]
+            perms += [perm]
 
         x = x.to('cuda:2')
 
-        for i in range(self.depth):
+        for i in range(self.depth-1):
             j = self.depth - 1 - i
 
             res = xs[j].to('cuda:2')
@@ -523,6 +524,20 @@ class EdgeUnet(torch.nn.Module):
 
             x = self.up_convs[i](x, edge_index)
             x = self.act(x) if i < self.depth - 1 else x
+
+        i = self.depth -1
+        j = self.depth - 1 - i
+
+        res = xs[j].to('cuda:0')
+        edge_index = edge_indices[j].to('cuda:0')
+        perm = perms[j].to('cuda:0')
+
+        up = torch.zeros_like(res).to('cuda:0')
+        up[perm] = x.to('cuda:0')
+        x = res + up if self.sum_res else torch.cat((res, up), dim=-1)
+
+        x = self.up_convs[i](x, edge_index)
+        x = self.act(x) if i < self.depth - 1 else x
 
         x = self.decode(x.to('cuda:3'))
 

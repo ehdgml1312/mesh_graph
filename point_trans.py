@@ -14,7 +14,7 @@ class PointTransformerConv(MessagePassing):
     def __init__(self, in_channels: Union[int, Tuple[int, int]],
                  out_channels: int, pos_nn: Optional[Callable] = None,
                  attn_nn: Optional[Callable] = None,
-                 add_self_loops: bool = True, **kwargs):
+                 add_self_loops: bool = False, **kwargs):
         kwargs.setdefault('aggr', 'mean')
         super().__init__(**kwargs)
 
@@ -45,9 +45,7 @@ class PointTransformerConv(MessagePassing):
         self.lin_dst.reset_parameters()
 
 
-    def forward(self,x, edge_index):
-
-        pos = x[:,:3]
+    def forward(self,x, pos, edge_index):
         if isinstance(x, Tensor):
             alpha = (self.lin_src(x), self.lin_dst(x))
             x: PairTensor = (self.lin(x), x)

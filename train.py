@@ -22,7 +22,18 @@ if config.data == 'mind':
     train_set = data[0:71]
     valid_set = data[71:81]
     test_set = data[81:]
-
+elif config.data == 'sphere6':
+    data = torch.load('sphere6')
+    random.shuffle(data)
+    train_set = data[0:71]
+    valid_set = data[71:81]
+    test_set = data[81:]
+elif config.data == 'sphere5':
+    data = torch.load('sphere5')
+    random.shuffle(data)
+    train_set = data[0:71]
+    valid_set = data[71:81]
+    test_set = data[81:]
 elif config.data == 'sulc':
     data = torch.load('sulc')
     random.shuffle(data)
@@ -35,11 +46,13 @@ valid_loader = DataLoader(valid_set, batch_size = 1)
 test_loader = DataLoader(test_set, batch_size = 1)
 
 device = config.device
-
+#
 if config.model == 'edge':
     model = EdgeUnet(config)
 elif config.model == 'trans':
     model = TransUnet(config)
+# model = PaTransUnet(in_channels=7, hidden_channels=[32,64,128,256], out_channels=32,
+#                  num_classes=32, pool_ratios = 0.5, sum_res=False)
 
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
@@ -53,7 +66,7 @@ for epoch in tqdm(range(500)):
     valid_loss = 0
 
     for data in train_loader:
-        data = data.to(device)
+        data = data
         optimizer.zero_grad()
         out = model(data)
 
@@ -71,7 +84,7 @@ for epoch in tqdm(range(500)):
     model.eval()
     with torch.no_grad():
         for data in valid_loader:
-            data = data.to(device)
+            data = data
             out = model(data)
 
             y = data.y.to('cuda:3')
@@ -91,7 +104,7 @@ for epoch in tqdm(range(500)):
 
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), os.path.join(config.save_dir, 'best_model.pt'))
+        torch.save(model.state_dict(), os.path.join(config.save_dir, 'best_model'))
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
 

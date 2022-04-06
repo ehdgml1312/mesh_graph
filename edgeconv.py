@@ -46,44 +46,57 @@ from point_trans import PointTransformerConv
 
 
 class Net(torch.nn.Module):
-    def __init__(self, in_channels,hidden_channels,out_channels, aggr='max'):
+    def __init__(self, in_channels,hidden_channels,out_channels, conv, aggr='max'):
         super().__init__()
         self.in_channels = in_channels
         self.hidden_channels = hidden_channels
+        self.conv = conv
 
-        self.conv1 = EdgeConv(nn.Linear(2 * in_channels, self.hidden_channels[0]), aggr)
-        self.conv2 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]), self.hidden_channels[1]), aggr)
-        self.conv3 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]), self.hidden_channels[2]), aggr)
-        self.conv4 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2]), self.hidden_channels[3]), aggr)
-        # self.conv1 = PointTransformerConv(in_channels, self.hidden_channels[0])
-        # self.conv2 = PointTransformerConv(in_channels+self.hidden_channels[0], self.hidden_channels[1])
-        # self.conv3 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1], self.hidden_channels[2])
-        # self.conv4 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2], self.hidden_channels[3])
+        if self.conv == 'edge':
+            self.conv1 = EdgeConv(nn.Linear(2 * in_channels, self.hidden_channels[0]), aggr)
+            self.conv2 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]), self.hidden_channels[1]), aggr)
+            self.conv3 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]), self.hidden_channels[2]), aggr)
+            self.conv4 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2]), self.hidden_channels[3]), aggr)
+        else:
+            self.conv1 = PointTransformerConv(in_channels, self.hidden_channels[0])
+            self.conv2 = PointTransformerConv(in_channels+self.hidden_channels[0], self.hidden_channels[1])
+            self.conv3 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1], self.hidden_channels[2])
+            self.conv4 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2], self.hidden_channels[3])
 
 
         self.mlp1 = nn.Linear(in_channels+sum(self.hidden_channels), 64)
         self.mlp2 = nn.Linear(64, out_channels)
 
+        self.dropout = nn.Dropout(p = 0.5)
+
     def forward(self, data):
         x, edge_index, pos, batch = data.x[:,:self.in_channels], data.edge_index, data.x[:,:3], data.batch
 
-        # x1 = self.conv1(x, pos, edge_index)
-        x1 = self.conv1(x, edge_index)
+        if self.conv == 'edge':
+            x1 = self.conv1(x, edge_index)
+        else:
+            x1 = self.conv1(x, pos, edge_index)
         x1 = F.leaky_relu(x1)
 
         x2 = torch.cat([x, x1], 1)
-        # x2 = self.conv2(x2, pos, edge_index)
-        x2 = self.conv2(x2, edge_index)
+        if self.conv == 'edge':
+            x2 = self.conv1(x1, edge_index)
+        else:
+            x2 = self.conv1(x1, pos, edge_index)
         x2 = F.leaky_relu(x2)
 
         x3 = torch.cat([x, x1, x2], 1)
-        # x3 = self.conv3(x3, pos, edge_index)
-        x3 = self.conv3(x3, edge_index)
+        if self.conv == 'edge':
+            x3 = self.conv1(x2, edge_index)
+        else:
+            x3 = self.conv1(x2, pos, edge_index)
         x3 = F.leaky_relu(x3)
 
         x4 = torch.cat([x, x1, x2, x3], 1)
-        # x4 = self.conv4(x4, pos, edge_index)
-        x4 = self.conv4(x4, edge_index)
+        if self.conv == 'edge':
+            x4 = self.conv1(x3, edge_index)
+        else:
+            x4 = self.conv1(x3, pos, edge_index)
         x4 = F.leaky_relu(x4)
 
         out = torch.cat([x, x1, x2, x3, x4], 1)
@@ -91,13 +104,14 @@ class Net(torch.nn.Module):
         # m = m.max(0).values.repeat(len(x), 1)
         #
         # out = torch.cat([out, m], 1)
+        out = self.dropout(out)
         out = self.mlp1(out)
         out = self.mlp2(out)
 
         return out
 
 device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
-model = Net(6,[128,64,32,16],32).to(device)
+model = Net(6,[128,64,32,16],32,edge).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
 print(model)

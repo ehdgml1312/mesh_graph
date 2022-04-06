@@ -9,12 +9,12 @@ import os
 #     existing_zip.extractall('mindboggle/lh_eig')
 
 path1 = 'mindboggle/lh'
-path2 = 'mindboggle/lh_eig'
+# path2 = 'mindboggle/lh_eig'
 
 filelist1 = os.listdir(path1)
 filelist1.sort()
-filelist2 = os.listdir(path2)
-filelist2.sort()
+# filelist2 = os.listdir(path2)
+# filelist2.sort()
 
 data_list=[]
 

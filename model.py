@@ -440,7 +440,7 @@ class EdgeUnet(torch.nn.Module):
     def __init__(self, config):
         super(EdgeUnet, self).__init__()
         self.in_channels = config.in_channels
-        self.channels = config.hidden_channels
+        self.hidden_channels = config.hidden_channels
         self.out_channels = config.out_channels
         self.depth = len(config.hidden_channels)
         self.num_classes = config.num_classes
@@ -450,18 +450,18 @@ class EdgeUnet(torch.nn.Module):
 
         self.down_convs = torch.nn.ModuleList()
         self.pools = torch.nn.ModuleList()
-        self.down_convs.append(EdgeConv(nn.Linear(2*self.in_channels, self.channels[0]), aggr='max'))
+        self.down_convs.append(EdgeConv(nn.Linear(2*self.in_channels, self.hidden_channels[0]), aggr='max'))
         for i in range(self.depth):
             self.pools.append(TopKPooling(self.channels[i], self.pool_ratios[i]))
             if i == self.depth - 1:  # bottom layer
-                self.down_convs.append(EdgeConv(nn.Linear(2*self.channels[i], self.channels[i]), aggr='max'))
+                self.down_convs.append(EdgeConv(nn.Linear(2*self.hidden_channels[i], self.hidden_channels[i]), aggr='max'))
             else:
-                self.down_convs.append(EdgeConv(nn.Linear(2*self.channels[i], self.channels[i + 1]), aggr='max'))
+                self.down_convs.append(EdgeConv(nn.Linear(2*self.hidden_channels[i], self.hidden_channels[i + 1]), aggr='max'))
 
         self.up_convs = torch.nn.ModuleList()
         for i in range(self.depth - 1):
-            self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.channels[self.depth - i - 1], self.channels[self.depth - i - 2]), aggr='max'))
-        self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.channels[0], self.out_channels), aggr='max'))
+            self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.hidden_channels[self.depth - i - 1], self.hidden_channels[self.depth - i - 2]), aggr='max'))
+        self.up_convs.append(EdgeConv(nn.Linear(2* 2 * self.hidden_channels[0], self.out_channels), aggr='max'))
 
         self.reset_parameters()
 

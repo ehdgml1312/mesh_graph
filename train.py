@@ -104,7 +104,7 @@ for epoch in tqdm(range(500)):
 
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), os.path.join(config.save_dir, 'best_model'))
+        torch.save(model.state_dict(), os.path.join(config.save_dir, 'best_model.pt'))
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
 

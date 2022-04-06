@@ -38,51 +38,52 @@ train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size=1)
 test_loader = DataLoader(test_set, batch_size=1)
 
-save_dir = 'exp/mindboggle/trans'
-# os.mkdir(save_dir)
+save_dir = 'exp/mindboggle/edge0.5'
+os.mkdir(save_dir)
 
 from torch_geometric.nn import EdgeConv, DynamicEdgeConv
 from point_trans import PointTransformerConv
 
 
 class Net(torch.nn.Module):
-    def __init__(self, in_channels,out_channels, aggr='max'):
+    def __init__(self, in_channels,hidden_channels,out_channels, aggr='max'):
         super().__init__()
         self.in_channels = in_channels
+        self.hidden_channels = hidden_channels
 
-        # self.conv1 = EdgeConv(nn.Linear(2 * in_channels, 256), aggr)
-        # self.conv2 = EdgeConv(nn.Linear(2 * (in_channels+256), 128), aggr)
-        # self.conv3 = EdgeConv(nn.Linear(2 * (in_channels+256+128), 64), aggr)
-        # self.conv4 = EdgeConv(nn.Linear(2 * (in_channels+256+128+64), 32), aggr)
-        self.conv1 = PointTransformerConv(in_channels, 256)
-        self.conv2 = PointTransformerConv(in_channels+256, 128)
-        self.conv3 = PointTransformerConv(in_channels+256+128, 64)
-        self.conv4 = PointTransformerConv(in_channels+256+128+64, 32)
+        self.conv1 = EdgeConv(nn.Linear(2 * in_channels, self.hidden_channels[0]), aggr)
+        self.conv2 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]), self.hidden_channels[1]), aggr)
+        self.conv3 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]), self.hidden_channels[2]), aggr)
+        self.conv4 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2]), self.hidden_channels[3]), aggr)
+        # self.conv1 = PointTransformerConv(in_channels, self.hidden_channels[0])
+        # self.conv2 = PointTransformerConv(in_channels+self.hidden_channels[0], self.hidden_channels[1])
+        # self.conv3 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1], self.hidden_channels[2])
+        # self.conv4 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2], self.hidden_channels[3])
 
 
-        self.mlp1 = nn.Linear(in_channels+256+128+64+32, 64)
+        self.mlp1 = nn.Linear(in_channels+sum(self.hidden_channels), 64)
         self.mlp2 = nn.Linear(64, out_channels)
 
     def forward(self, data):
         x, edge_index, pos, batch = data.x[:,:self.in_channels], data.edge_index, data.x[:,:3], data.batch
 
-        x1 = self.conv1(x, pos, edge_index)
-        # x1 = self.conv1(x, edge_index)
+        # x1 = self.conv1(x, pos, edge_index)
+        x1 = self.conv1(x, edge_index)
         x1 = F.leaky_relu(x1)
 
         x2 = torch.cat([x, x1], 1)
-        x2 = self.conv2(x2, pos, edge_index)
-        # x2 = self.conv2(x2, edge_index)
+        # x2 = self.conv2(x2, pos, edge_index)
+        x2 = self.conv2(x2, edge_index)
         x2 = F.leaky_relu(x2)
 
         x3 = torch.cat([x, x1, x2], 1)
-        x3 = self.conv3(x3, pos, edge_index)
-        # x3 = self.conv3(x3, edge_index)
+        # x3 = self.conv3(x3, pos, edge_index)
+        x3 = self.conv3(x3, edge_index)
         x3 = F.leaky_relu(x3)
 
         x4 = torch.cat([x, x1, x2, x3], 1)
-        x4 = self.conv4(x4, pos, edge_index)
-        # x4 = self.conv4(x4, edge_index)
+        # x4 = self.conv4(x4, pos, edge_index)
+        x4 = self.conv4(x4, edge_index)
         x4 = F.leaky_relu(x4)
 
         out = torch.cat([x, x1, x2, x3, x4], 1)
@@ -95,8 +96,8 @@ class Net(torch.nn.Module):
 
         return out
 
-device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
-model = Net(6,32).to(device)
+device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
+model = Net(6,[128,64,32,16],32).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
 print(model)

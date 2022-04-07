@@ -22,7 +22,7 @@ torch.cuda.manual_seed_all(1)
 # valid_set = data[25:29]
 # test_set = data[29:]
 #
-data = torch.load('mind')
+data = torch.load('sphere5')
 random.shuffle(data)
 train_set = data[0:71]
 valid_set = data[71:81]
@@ -38,8 +38,10 @@ train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size=1)
 test_loader = DataLoader(test_set, batch_size=1)
 
-save_dir = 'exp/mindboggle/edge0.5'
-os.mkdir(save_dir)
+conv = 'edge'
+save_dir = 'exp/sphere5/'
+save_dir += conv
+os.makedirs(save_dir, exist_ok=True)
 
 from torch_geometric.nn import EdgeConv, DynamicEdgeConv
 from point_trans import PointTransformerConv
@@ -80,23 +82,23 @@ class Net(torch.nn.Module):
 
         x2 = torch.cat([x, x1], 1)
         if self.conv == 'edge':
-            x2 = self.conv1(x1, edge_index)
+            x2 = self.conv2(x2, edge_index)
         else:
-            x2 = self.conv1(x1, pos, edge_index)
+            x2 = self.conv2(x2, pos, edge_index)
         x2 = F.leaky_relu(x2)
 
         x3 = torch.cat([x, x1, x2], 1)
         if self.conv == 'edge':
-            x3 = self.conv1(x2, edge_index)
+            x3 = self.conv3(x3, edge_index)
         else:
-            x3 = self.conv1(x2, pos, edge_index)
+            x3 = self.conv3(x3, pos, edge_index)
         x3 = F.leaky_relu(x3)
 
         x4 = torch.cat([x, x1, x2, x3], 1)
         if self.conv == 'edge':
-            x4 = self.conv1(x3, edge_index)
+            x4 = self.conv4(x4, edge_index)
         else:
-            x4 = self.conv1(x3, pos, edge_index)
+            x4 = self.conv4(x4, pos, edge_index)
         x4 = F.leaky_relu(x4)
 
         out = torch.cat([x, x1, x2, x3, x4], 1)
@@ -111,7 +113,7 @@ class Net(torch.nn.Module):
         return out
 
 device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
-model = Net(6,[128,64,32,16],32,edge).to(device)
+model = Net(6,[256,128,64,32],32,conv).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
 print(model)
@@ -119,7 +121,7 @@ print(device)
 train_loss_history=[]
 valid_loss_history=[]
 best_loss = 10e10
-for epoch in tqdm(range(600)):
+for epoch in tqdm(range(500)):
     model.train()
     train_loss = 0
     valid_loss = 0
@@ -161,11 +163,11 @@ for epoch in tqdm(range(600)):
 
     if valid_loss < best_loss:
         best_loss = valid_loss
-        torch.save(model.state_dict(), os.path.join(save_dir, 'best_model'))
+        torch.save(model.state_dict(), os.path.join(save_dir, 'best_model.pt'))
 
     print(f'Epoch: {epoch:03d} Train Loss: {train_loss:.4f}  Valid Loss: {valid_loss:.4f}')
-torch.save(train_loss_history, os.path.join(save_dir, 'train_loss'))
-torch.save(valid_loss_history, os.path.join(save_dir, 'valid_loss'))
+torch.save(train_loss_history, os.path.join(save_dir, 'train_loss.txt'))
+torch.save(valid_loss_history, os.path.join(save_dir, 'valid_loss.txt'))
 #
 # def dice(pred, gt):
 #     XnY = torch.ones((len(gt))).to(device) * 14

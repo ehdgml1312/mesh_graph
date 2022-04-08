@@ -11,6 +11,14 @@ import os
 plt.style.use('default')
 import torch.nn as nn
 
+data_path = 'sphere6'
+conv = 'edge'
+save_dir = os.path.join('exp',data_path,conv)
+
+os.makedirs(save_dir, exist_ok=True)
+
+device = torch.device('cuda:0' if torch.cuda.is_available() else 'cpu')
+
 np.random.seed(1)
 random.seed(1)
 torch.manual_seed(1)
@@ -22,7 +30,7 @@ torch.cuda.manual_seed_all(1)
 # valid_set = data[25:29]
 # test_set = data[29:]
 #
-data = torch.load('sphere5')
+data = torch.load(data_path)
 random.shuffle(data)
 train_set = data[0:71]
 valid_set = data[71:81]
@@ -34,14 +42,13 @@ test_set = data[81:]
 # valid_set = data[71:81]
 # test_set = data[81:]
 
+print(data[0])
+print(len(train_set), len(valid_set), len(test_set))
 train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size=1)
 test_loader = DataLoader(test_set, batch_size=1)
 
-conv = 'edge'
-save_dir = 'exp/sphere5/'
-save_dir += conv
-os.makedirs(save_dir, exist_ok=True)
+
 
 from torch_geometric.nn import EdgeConv, DynamicEdgeConv
 from point_trans import PointTransformerConv
@@ -112,7 +119,6 @@ class Net(torch.nn.Module):
 
         return out
 
-device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 model = Net(6,[256,128,64,32],32,conv).to(device)
 optimizer = optim.Adam(model.parameters(), lr=0.01)
 scheduler = optim.lr_scheduler.CosineAnnealingLR(optimizer,T_max=20)
@@ -121,7 +127,7 @@ print(device)
 train_loss_history=[]
 valid_loss_history=[]
 best_loss = 10e10
-for epoch in tqdm(range(500)):
+for epoch in tqdm(range(300)):
     model.train()
     train_loss = 0
     valid_loss = 0

@@ -9,12 +9,12 @@ import os
 #     existing_zip.extractall('mindboggle/lh_eig')
 
 path1 = 'mindboggle/lh'
-# path2 = 'mindboggle/lh_eig'
+path2 = 'mindboggle/lh_eig'
 
 filelist1 = os.listdir(path1)
 filelist1.sort()
-# filelist2 = os.listdir(path2)
-# filelist2.sort()
+filelist2 = os.listdir(path2)
+filelist2.sort()
 
 data_list=[]
 
@@ -32,15 +32,23 @@ for i in range(101):
     edge_index = torch.transpose(edge_index[1:],0,1)
     f.close()
 
-    f1 = open(path1 + '/' + filelist1[2*i+1])
+    f1 = open(path1 + '/' + filelist1[2*i+1],'r')
     line1 = f1.read().splitlines()
+    f2 = open(path2 + '/' + filelist2[i], 'r')
+    line2 = f2.read().splitlines()
     x = torch.zeros(num_nodes,6)
     y = torch.zeros(num_nodes,1)
     for j in range(num_nodes):
         feature1 = line1[j].split()
-        for k in range(6):
-            x[j][k] = float(feature1[k])
+        # for k in range(6):
+        #     x[j][k] = float(feature1[k])
+
+        feature2 = line2[j].split() # spectral
+        for i in range(3):
+            x[j][k] = float(feature2[k])
+            x[j][k+3] = float(feature1[k+3])
         y[j] = float(feature1[6])-1
+
         y = y.squeeze()
     f1.close()
 
@@ -50,6 +58,6 @@ for i in range(101):
 
     data = Data(x=x_n.float(), edge_index=edge_index,y=y.long())
     data_list.append(data)
-torch.save(data_list,'mind')
+torch.save(data_list,'spectral')
 
 

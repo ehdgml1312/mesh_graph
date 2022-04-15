@@ -7,13 +7,12 @@ import random
 import matplotlib.pyplot as plt
 import numpy as np
 import os
-
-plt.style.use('default')
 import torch.nn as nn
-
-data_path = 'sphere6'
-conv = 'edge'
-save_dir = os.path.join('exp',data_path,conv)
+from torch_geometric.nn import EdgeConv, DynamicEdgeConv
+from point_trans import PointTransformerConv
+data_path = 'sphere5'
+conv = 'trans'
+save_dir = os.path.join('exp','/one',data_path,conv)
 
 os.makedirs(save_dir, exist_ok=True)
 
@@ -48,10 +47,42 @@ train_loader = DataLoader(train_set, batch_size=1, shuffle=True)
 valid_loader = DataLoader(valid_set, batch_size=1)
 test_loader = DataLoader(test_set, batch_size=1)
 
+from torch.nn.modules.loss import _Loss
+class CombDiceCross(_Loss):
+    """
+    The Sørensen-Dice Loss.
+    """
+    def __init__(self):
+        super(CombDiceCross, self).__init__()
 
+    def forward(self, inputs: torch.Tensor, targets: torch.Tensor, wht: torch.tensor):
+        """
+        Computes the CrossEntropy and Sørensen–Dice loss.
+        Note that PyTorch optimizers minimize a loss. In this case, we would like to maximize the dice loss so we
+        return the negated dice loss.
+        Args:
+            inputs (:obj:`torch.Tensor`) : A tensor of shape (B, C, ..). The model prediction on which the loss has to
+             be computed.
+            targets (:obj:`torch.Tensor`) : A tensor of shape (B, C, ..). The ground truth.
+        Returns:
+            :obj:`torch.Tensor`: The Sørensen–Dice loss for each class or reduced according to reduction method.
+        """
+        if not inputs.size() == targets.size():
+            raise ValueError("'Inputs' and 'Targets' must have the same shape.")
 
-from torch_geometric.nn import EdgeConv, DynamicEdgeConv
-from point_trans import PointTransformerConv
+        eps = 0.000000001
+
+        intersection = (F.softmax(inputs, dim=1) * targets).sum(0)
+        union = (F.softmax(inputs, dim=1) + targets).sum(0)
+        numerator = 2 * intersection
+        denominator = union + eps
+
+        loss_dic = (wht * (1 - (numerator / denominator))).sum()
+
+        loss_cen = F.cross_entropy(inputs, torch.max(targets, 1)[1], weight=wht)
+
+        return (loss_dic + loss_cen) / 2
+compute_loss = CombDiceCross()
 
 
 class Net(torch.nn.Module):
@@ -108,7 +139,7 @@ class Net(torch.nn.Module):
             x4 = self.conv4(x4, pos, edge_index)
         x4 = F.leaky_relu(x4)
 
-        out = torch.cat([x, x1, x2, x3, x4], 1)
+        # out = torch.cat([x, x1, x2, x3, x4], 1)
         # m = self.mlp(out)
         # m = m.max(0).values.repeat(len(x), 1)
         #
@@ -140,9 +171,12 @@ for epoch in tqdm(range(300)):
         weight = torch.bincount(data.y) / len(data.y)
         weight = 1 / weight
         weight = weight / weight.sum()
-        criterion = torch.nn.CrossEntropyLoss(weight=weight)
+        # criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-        loss = criterion(out, data.y)
+        gt = F.one_hot(data.y, 32)
+        # loss = criterion(out, data.y)
+        loss = 1 - compute_loss(out,gt,weight)
+
         loss.backward()
         optimizer.step()
         train_loss += loss
@@ -156,9 +190,12 @@ for epoch in tqdm(range(300)):
             weight = torch.bincount(data.y) / len(data.y)
             weight = 1 / weight
             weight = weight / weight.sum()
-            criterion = torch.nn.CrossEntropyLoss(weight=weight)
+            # criterion = torch.nn.CrossEntropyLoss(weight=weight)
 
-            loss = criterion(out, data.y)
+            gt = F.one_hot(data.y, 32)
+            loss = 1 - compute_loss(out,gt,weight)
+
+            # loss = criterion(out, data.y)
             valid_loss += loss
 
     train_loss = train_loss / len(train_set)

@@ -44,7 +44,7 @@ for i in range(101):
         #     x[j][k] = float(feature1[k])
 
         feature2 = line2[j].split() # spectral
-        for i in range(3):
+        for k in range(3):
             x[j][k] = float(feature2[k])
             x[j][k+3] = float(feature1[k+3])
         y[j] = float(feature1[6])-1

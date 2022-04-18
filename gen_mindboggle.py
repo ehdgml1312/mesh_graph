@@ -40,24 +40,26 @@ for i in range(101):
     y = torch.zeros(num_nodes,1)
     for j in range(num_nodes):
         feature1 = line1[j].split()
-        # for k in range(6):
-        #     x[j][k] = float(feature1[k])
+        for k in range(6):
+            x[j][k] = float(feature1[k])
 
-        feature2 = line2[j].split() # spectral
-        for k in range(3):
-            x[j][k] = float(feature2[k])
-            x[j][k+3] = float(feature1[k+3])
+        # feature2 = line2[j].split() # spectral
+        # for k in range(3):
+        #     x[j][k] = float(feature2[k])
+        #     x[j][k+3] = float(feature1[k+3])
+
         y[j] = float(feature1[6])-1
 
         y = y.squeeze()
     f1.close()
+    f2.close()
 
-    mu = torch.mean(x,0)
-    sigma = torch.sqrt(torch.mean((x-mu)**2,0))
-    x_n = (x-mu)/sigma
+    # mu = torch.mean(x,0)
+    # sigma = torch.sqrt(torch.mean((x-mu)**2,0))
+    # x_n = (x-mu)/sigma
 
     data = Data(x=x_n.float(), edge_index=edge_index,y=y.long())
     data_list.append(data)
-torch.save(data_list,'spectral')
+torch.save(data_list,'mind_no_std')
 
 

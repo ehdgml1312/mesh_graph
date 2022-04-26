@@ -1,13 +1,13 @@
 ---
 exp_dir: ./exp
-seed: 2
-device: cuda:1
+seed: 1
+device: cuda:3
 
 model: trans
-data : mind
+data: sphere6
 in_channels: 6
-hidden_channels: [32,64,128]
-pool_ratios: [0.5,0.5,0.5]
+hidden_channels: [32,64,128,256]
+pool_ratios: [0.5,0.5,0.5,0.5]
 out_channels: 32
 num_classes: 32
 sum_res: False

@@ -562,6 +562,71 @@ class EdgeUnet(torch.nn.Module):
             self.__class__.__name__, self.in_channels, self.hidden_channels,
             self.out_channels, self.depth, self.pool_ratios)
 
+class Net(torch.nn.Module):
+    def __init__(self, in_channels,hidden_channels,out_channels, conv, aggr='max'):
+        super().__init__()
+        self.in_channels = in_channels
+        self.hidden_channels = hidden_channels
+        self.conv = conv
+
+        if self.conv == 'edge':
+            self.conv1 = EdgeConv(nn.Linear(2 * in_channels, self.hidden_channels[0]), aggr)
+            self.conv2 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]), self.hidden_channels[1]), aggr)
+            self.conv3 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]), self.hidden_channels[2]), aggr)
+            self.conv4 = EdgeConv(nn.Linear(2 * (in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2]), self.hidden_channels[3]), aggr)
+        else:
+            self.conv1 = PointTransformerConv(in_channels, self.hidden_channels[0])
+            self.conv2 = PointTransformerConv(in_channels+self.hidden_channels[0], self.hidden_channels[1])
+            self.conv3 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1], self.hidden_channels[2])
+            self.conv4 = PointTransformerConv(in_channels+self.hidden_channels[0]+self.hidden_channels[1]+self.hidden_channels[2], self.hidden_channels[3])
+
+
+        self.mlp1 = nn.Linear(in_channels+sum(self.hidden_channels), 64)
+        self.mlp2 = nn.Linear(64, out_channels)
+
+        self.dropout = nn.Dropout(p = 0.5)
+
+    def forward(self, data):
+        x, edge_index, pos, batch = data.x[:,:self.in_channels], data.edge_index, data.x[:,:3], data.batch
+
+        if self.conv == 'edge':
+            x1 = self.conv1(x, edge_index)
+        else:
+            x1 = self.conv1(x, pos, edge_index)
+        x1 = F.leaky_relu(x1)
+
+        x2 = torch.cat([x, x1], 1)
+        if self.conv == 'edge':
+            x2 = self.conv2(x2, edge_index)
+        else:
+            x2 = self.conv2(x2, pos, edge_index)
+        x2 = F.leaky_relu(x2)
+
+        x3 = torch.cat([x, x1, x2], 1)
+        if self.conv == 'edge':
+            x3 = self.conv3(x3, edge_index)
+        else:
+            x3 = self.conv3(x3, pos, edge_index)
+        x3 = F.leaky_relu(x3)
+
+        x4 = torch.cat([x, x1, x2, x3], 1)
+        if self.conv == 'edge':
+            x4 = self.conv4(x4, edge_index)
+        else:
+            x4 = self.conv4(x4, pos, edge_index)
+        x4 = F.leaky_relu(x4)
+
+        out = torch.cat([x, x1, x2, x3, x4], 1)
+        # m = self.mlp(out)
+        # m = m.max(0).values.repeat(len(x), 1)
+        #
+        # out = torch.cat([out, m], 1)
+        out = self.dropout(out)
+        out = self.mlp1(out)
+        out = self.mlp2(out)
+
+        return out
+
 class ProbGraphUnet(torch.nn.Module):
     def __init__(self, config):
         super(ProbGraphUnet, self).__init__()

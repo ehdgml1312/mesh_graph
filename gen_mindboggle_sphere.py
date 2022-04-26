@@ -11,17 +11,17 @@ filelist1.remove('ico')
 filelist1.remove('sphere.sh')
 data_list=[]
 
-edge_index = torch.load('mindboggle/mesh/ico/edge_6')
+edge_index = torch.load('mindboggle/mesh/ico/edge_5')
 
 for i in range(101):
-    f1 = open(path1 + '/' + filelist1[i] + '/lh.6.x.txt', 'r')
-    f2 = open(path1 + '/' + filelist1[i] + '/lh.6.y.txt', 'r')
-    f3 = open(path1 + '/' + filelist1[i] + '/lh.6.z.txt', 'r')
-    f4 = open(path1 + '/' + filelist1[i] + '/lh.6.curv.txt', 'r')
-    f5 = open(path1 + '/' + filelist1[i] + '/lh.6.iH.txt', 'r')
-    f6 = open(path1 + '/' + filelist1[i] + '/lh.6.sulc.txt', 'r')
-    f7 = open(path1 + '/' + filelist1[i] + '/lh.6.thickness.txt', 'r')
-    f8 = open(path1 + '/' + filelist1[i] + '/lh.6.label.txt', 'r')
+    f1 = open(path1 + '/' + filelist1[i] + '/lh.5.x.txt', 'r')
+    f2 = open(path1 + '/' + filelist1[i] + '/lh.5.y.txt', 'r')
+    f3 = open(path1 + '/' + filelist1[i] + '/lh.5.z.txt', 'r')
+    f4 = open(path1 + '/' + filelist1[i] + '/lh.5.curv.txt', 'r')
+    f5 = open(path1 + '/' + filelist1[i] + '/lh.5.iH.txt', 'r')
+    f6 = open(path1 + '/' + filelist1[i] + '/lh.5.sulc.txt', 'r')
+    f7 = open(path1 + '/' + filelist1[i] + '/lh.5.thickness.txt', 'r')
+    f8 = open(path1 + '/' + filelist1[i] + '/lh.5.label.txt', 'r')
 
     line1 = f1.read().splitlines()
     line2 = f2.read().splitlines()
@@ -50,12 +50,12 @@ for i in range(101):
     x = torch.cat((x1,x2,x3,x4,x5,x6,x7),-1)
     y -= 1
 
-    mu = torch.mean(x,0)
-    sigma = torch.sqrt(torch.mean((x-mu)**2,0))
-    x_n = (x-mu)/sigma
+    # mu = torch.mean(x,0)
+    # sigma = torch.sqrt(torch.mean((x-mu)**2,0))
+    # x_n = (x-mu)/sigma
 
-    data = Data(x=x_n.float(), edge_index=edge_index,y=y.long())
+    data = Data(x=x.half().float(), edge_index=edge_index,y=y.long())
     data_list.append(data)
-torch.save(data_list,'sphere6')
+torch.save(data_list,'sphere5_no_std')
 
 

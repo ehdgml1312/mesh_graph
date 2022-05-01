@@ -22,10 +22,7 @@ conv = 'edge'
 
 device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
-np.random.seed(1)
-random.seed(1)
-torch.manual_seed(1)
-torch.cuda.manual_seed_all(1)
+seed_everything(1)
 
 # data = torch.load('sulc')
 # random.shuffle(data)

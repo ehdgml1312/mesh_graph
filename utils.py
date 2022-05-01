@@ -1,6 +1,6 @@
 import torch
 import random
-import nuympy as np
+import numpy as np
 import os
 
 def dice(pred, gt):

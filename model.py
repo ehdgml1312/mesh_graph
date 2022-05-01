@@ -594,6 +594,7 @@ class Net(torch.nn.Module):
         else:
             x1 = self.conv1(x, pos, edge_index)
         x1 = F.leaky_relu(x1)
+        self.dropout(x1)
 
         x2 = torch.cat([x, x1], 1)
         if self.conv == 'edge':
@@ -601,6 +602,7 @@ class Net(torch.nn.Module):
         else:
             x2 = self.conv2(x2, pos, edge_index)
         x2 = F.leaky_relu(x2)
+        self.dropout(x2)
 
         x3 = torch.cat([x, x1, x2], 1)
         if self.conv == 'edge':
@@ -608,6 +610,7 @@ class Net(torch.nn.Module):
         else:
             x3 = self.conv3(x3, pos, edge_index)
         x3 = F.leaky_relu(x3)
+        self.dropout(x3)
 
         x4 = torch.cat([x, x1, x2, x3], 1)
         if self.conv == 'edge':

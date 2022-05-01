@@ -111,36 +111,3 @@ for epoch in tqdm(range(500)):
 torch.save(train_loss_history, os.path.join(config.save_dir, 'train_loss'))
 torch.save(valid_loss_history, os.path.join(config.save_dir, 'valid_loss'))
 
-# def dice(pred, gt):
-#     XnY = torch.ones((len(gt))).to(device) * 14
-#     for i in range(len(gt)):
-#         if pred[i] == gt[i]:
-#             XnY[i] = pred[i]
-#     D = torch.zeros((14))
-#     for j in range(14):
-#         if (len(torch.where(pred == j)[0]) + len(torch.where(gt == j)[0])) == 0:
-#             D[j] = 0
-#         else:
-#             D[j] = ((2 * len(torch.where(XnY == j)[0])) / (
-#                         len(torch.where(pred == j)[0]) + len(torch.where(gt == j)[0])))
-#
-#     dice = (torch.sum(D) - D[0]) / 13
-#     return dice
-#
-# model.load_state_dict(best_state)
-#
-# model.eval()
-# with torch.no_grad():
-#     test_dice = 0
-#
-#     for data in test_loader:
-#         data = data.to(device)
-#         out = model(data)
-#         pred = out.argmax(dim=1)
-#
-#         D = dice(pred, data.y)
-#
-#         test_dice += D
-#     test_dice /= 7
-# print('4')
-# print(test_dice)

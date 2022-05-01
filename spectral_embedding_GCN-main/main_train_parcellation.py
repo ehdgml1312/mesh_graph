@@ -33,86 +33,31 @@ def set_seed(seed):
     os.environ["PYTHONHASHSEED"] = str(seed)
 
 
-# parsing the parameters
-def _get_config():
-    parser = argparse.ArgumentParser(description="Main handler for training",
-                                     usage="python ./train.py -j config.json -g 0")
-    # parser.add_argument("-j", "--json", help="configuration json file", required=True)
-    # parser.add_argument('-g', '--gpu', help='Cuda Visible Devices', required=True)
-    # parser.add_argument('-he', '--hemi', help='Left or right hemishere', required=True)
-    # parser.add_argument('-cn', '--name', help='Name of data', required=True)
-    # parser.add_argument('-exp', '--exp', help='Name of experiment', required=True)
-    # parser.add_argument('-lr', '--lr', help='Learning rate', required=True)
-    args = parser.parse_args()
 
-    with open(args.json, 'r') as f:
-        config = json.loads(f.read())
-
-    config['directories']['ConfigName'] = args.name + '_' + args.exp + '_' + args.hemi
-    config['directories']['hemi'] = args.hemi
-    config['directories']['exp'] = args.exp
-    config['directories']['name'] = args.name
-    config['optimizer_wh']['LR_seg'] = args.lr
-
-    initial_weights = config['generator']['initial_epoch']
-    directory = os.path.join(config['directories']['out_dir'],
-                             config['directories']['ConfigName'],
-                             'config', str(initial_weights))
-    if not os.path.exists(directory):
-        os.makedirs(directory)
-
-    copyfile(args.json, os.path.join(config['directories']['out_dir'],
-                                     config['directories']['ConfigName'],
-                                     'config', str(initial_weights), 'config.json'))
-    text_file = open(os.path.join(config['directories']['out_dir'],
-                                     config['directories']['ConfigName'],
-                                     'config', str(initial_weights), 'parameters.txt'), "wt")
-    text_file.write(config['directories']['ConfigName'] + '\n')
-    text_file.write(config['directories']['hemi'] + '\n')
-    text_file.write(config['directories']['exp'] + '\n')
-    text_file.write(config['directories']['name'] + '\n')
-    text_file.write(config['optimizer_wh']['LR_seg'] + '\n')
-    text_file.close()
-
-    # Set the GPU flag to run the code
-    os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
-
-    set_seed(config["seed"]["seed"])
-
-    return config
 
 
 def main(config):
-    device = torch.device("cuda")
+    device = torch.device("cuda:2")
 
-    generator_config = config['generator']  # Model experiments total epochs and beginning epoch
-    initial_epoch = generator_config['initial_epoch']  # O by default and otherwise 'N' if loading
-    num_epochs = generator_config['num_epochs']  # Total Number of Epochs
-    plt_sep = generator_config['plot_separate']  # Plot the train, valid and test separately: 0 or 1
+    initial_epoch = 0  # O by default and otherwise 'N' if loading
+    num_epochs = 400  # Total Number of Epochs
+    plt_sep = 0  # Plot the train, valid and test separately: 0 or 1
 
-    model_params = config['model_params']
-    feat = model_params['feat']
-    hid1 = model_params['hid1']
-    hid2 = model_params['hid2']
-    hid3 = model_params['hid3']
+    feat = 6
+    hid1 = 256
+    hid2 = 128
+    hid3 = 64
 
-    par = model_params['par']
-    emb_siz = model_params['emb_siz']
-    ker_siz = model_params['ker_siz']
+    par = 32
+    emb_siz =3
+    ker_siz = 6
 
-    optm_config = config['optimizer_wh']
-    b1 = optm_config['B1']  # B1 for Adam Optimizer: Ex. 0.9
-    b2 = optm_config['B2']  # B2 for Adam Optimizer: Ex. 0.999
-    lr_wh_seg = float(optm_config['LR_seg'])  # Learning Rate: Ex. 0.001
-    optm_con_mu = config['optimizer_mu']
-    lr_mu = optm_con_mu['LR']  # Learning Rate: Ex. 0.001
-    optm_con_si = config['optimizer_si']
-    lr_si = optm_con_si['LR']  # Learning Rate: Ex. 0.001
+    b1 = 0.9  # B1 for Adam Optimizer: Ex. 0.9
+    b2 = 0.999 # B2 for Adam Optimizer: Ex. 0.999
+    lr_wh_seg = float(0.005)  # Learning Rate: Ex. 0.001
+    lr_mu = 0.000000001  # Learning Rate: Ex. 0.001
+    lr_si = 1000  # Learning Rate: Ex. 0.001
 
-    directory_config = config['directories']
-    out_dir = directory_config['out_dir']  # Path to save the outputs of the experiments
-    config_name = directory_config['ConfigName']  # Configuration Name to Uniquely Identify this Experiment
-    hemi = directory_config['hemi']
     log_path = join(out_dir, config_name, 'log')  # Path to save the training log files
     if not os.path.exists(log_path):
         os.makedirs(log_path)

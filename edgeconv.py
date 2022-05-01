@@ -22,7 +22,7 @@ conv = 'edge'
 
 device = torch.device('cuda:2' if torch.cuda.is_available() else 'cpu')
 
-seed_everything(1)
+set_seed(1)
 
 # data = torch.load('sulc')
 # random.shuffle(data)
@@ -87,7 +87,7 @@ class Net(torch.nn.Module):
         else:
             x1 = self.conv1(x, pos, edge_index)
         x1 = F.leaky_relu(x1)
-        # self.dropout(x1)
+        self.dropout(x1)
 
         x2 = torch.cat([x, x1], 1)
         if self.conv == 'edge':
@@ -95,7 +95,7 @@ class Net(torch.nn.Module):
         else:
             x2 = self.conv2(x2, pos, edge_index)
         x2 = F.leaky_relu(x2)
-        # self.dropout(x2)
+        self.dropout(x2)
 
         x3 = torch.cat([x, x1, x2], 1)
         if self.conv == 'edge':
@@ -103,7 +103,7 @@ class Net(torch.nn.Module):
         else:
             x3 = self.conv3(x3, pos, edge_index)
         x3 = F.leaky_relu(x3)
-        # self.dropout(x3)
+        self.dropout(x3)
 
         x4 = torch.cat([x, x1, x2, x3], 1)
         if self.conv == 'edge':
@@ -212,4 +212,4 @@ with torch.no_grad():
         test_dice += D
     test_dice /= len(test_set)
 print(test_dice)
-print('std')
+print('drop50')
